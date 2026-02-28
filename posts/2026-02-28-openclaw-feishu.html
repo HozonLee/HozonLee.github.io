@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenClaw对接飞书：打造智能AI助手 - 佑值的技术博客</title>
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="alternate" type="application/rss+xml" title="佑值的技术博客 RSS" href="../feed.xml">
+    <script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark-mode');</script>
+</head>
+<body>
+    <button id="theme-toggle" class="theme-toggle" title="切换主题">🌙</button>
+    
+    <header>
+        <h1><a href="../index.html">佑值的技术博客</a></h1>
+        <p class="tagline">Be yourself and don't go with the flow.</p>
+        <nav>
+            <a href="../index.html">首页</a>
+            <a href="../weekly/index.html">潮流周刊</a>
+            <a href="../about/index.html">关于</a>
+            <a href="../tags/index.html">标签</a>
+        </nav>
+    </header>
+    <main>
+        <section class="post">
+            <a href="../index.html" class="back-link">← 返回首页</a>
+            <div class="post-meta">
+                <p>【2026-02-28】</p>
+                <div class="tags"><span class="tag">OpenClaw</span><span class="tag">飞书</span><span class="tag">集成</span><span class="tag">AI助手</span></div>
+            </div>
+            <div class="post-content">
+                <h1>OpenClaw对接飞书：打造智能AI助手</h1>
+
+<h2>引言</h2>
+
+<p>在前一篇文章中，我们介绍了如何在MacBook Pro上本地部署OpenClaw和DeepSeek。今天，我们将进一步探索如何将OpenClaw与飞书（Feishu/Lark）集成，打造一个智能的AI助手，让团队成员可以通过飞书机器人与本地部署的大模型进行交互。</p>
+
+<h2>为什么要对接飞书？</h2>
+
+<h3>1. 团队协作</h3>
+<p>飞书作为企业级协作平台，拥有完善的即时通讯、文档协作和日程管理功能。将AI助手集成到飞书中，可以让团队成员在日常工作中无缝使用AI能力。</p>
+
+<h3>2. 权限管理</h3>
+<p>飞书提供了完善的权限管理系统，可以控制谁可以访问AI助手，以及使用哪些功能。</p>
+
+<h3>3. 消息通知</h3>
+<p>通过飞书机器人，AI可以将重要信息主动推送给相关人员，实现智能化的工作流。</p>
+
+<h2>前置条件</h2>
+
+<h3>1. 已部署的OpenClaw服务</h3>
+<p>确保你已经按照上一篇文章的步骤，在本地或服务器上成功部署了OpenClaw，并且可以通过API访问。</p>
+
+<h3>2. 飞书开发者账号</h3>
+<p>你需要有一个飞书开发者账号，可以在<a href="https://open.feishu.cn/">飞书开放平台</a>注册。</p>
+
+<h3>3. Python环境</h3>
+<p>用于编写飞书机器人的中间服务。</p>
+
+<h2>对接步骤</h2>
+
+<h3>第一步：创建飞书机器人</h3>
+
+<li>登录<a href="https://open.feishu.cn/">飞书开放平台</a></li>
+<li>点击"创建企业自建应用"</li>
+<li>填写应用名称（如"AI助手"）和应用描述</li>
+<li>在"凭证与基础信息"中获取 <strong>App ID</strong> 和 <strong>App Secret</strong></li>
+
+<h3>第二步：配置机器人权限</h3>
+
+<p>在"权限管理"中，添加以下权限：</p>
+<p><ul><li><code>im:chat:readonly</code> - 读取群组信息</li></p>
+<li><code>im:message.group_msg</code> - 发送群组消息</li>
+<li><code>im:message:send</code> - 发送消息</li>
+<li><code>im:message.p2p_msg</code> - 发送单聊消息</li>
+<p></ul></p>
+<h3>第三步：启用机器人功能</h3>
+
+<p>在"机器人"功能模块中：</p>
+<li>启用机器人</li>
+<li>设置机器人名称和头像</li>
+<li>配置消息卡片（可选）</li>
+
+<h3>第四步：编写中间服务</h3>
+
+<p>创建一个Python脚本来连接飞书和OpenClaw：</p>
+
+<p><code>`</code>python</p>
+<h1>feishu_openclaw_bot.py</h1>
+<p>import requests</p>
+<p>import json</p>
+<p>from flask import Flask, request</p>
+
+<p>app = Flask(__name__)</p>
+
+<h1>配置</h1>
+<p>FEISHU_APP_ID = 'your_app_id'</p>
+<p>FEISHU_APP_SECRET = 'your_app_secret'</p>
+<p>OPENCLAW_URL = 'http://localhost:8000/api/generate'</p>
+
+<h1>获取飞书tenant_access_token</h1>
+<p>def get_tenant_access_token():</p>
+<p>    url = 'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal'</p>
+<p>    headers = {'Content-Type': 'application/json'}</p>
+<p>    data = {</p>
+<p>        'app_id': FEISHU_APP_ID,</p>
+<p>        'app_secret': FEISHU_APP_SECRET</p>
+<p>    }</p>
+<p>    response = requests.post(url, headers=headers, json=data)</p>
+<p>    return response.json().get('tenant_access_token')</p>
+
+<h1>发送消息到飞书</h1>
+<p>def send_feishu_message(chat_id, message):</p>
+<p>    token = get_tenant_access_token()</p>
+<p>    url = 'https://open.feishu.cn/open-apis/message/v4/send'</p>
+<p>    headers = {</p>
+<p>        'Authorization': f'Bearer {token}',</p>
+<p>        'Content-Type': 'application/json'</p>
+<p>    }</p>
+<p>    data = {</p>
+<p>        'chat_id': chat_id,</p>
+<p>        'msg_type': 'text',</p>
+<p>        'content': {</p>
+<p>            'text': message</p>
+<p>        }</p>
+<p>    }</p>
+<p>    requests.post(url, headers=headers, json=data)</p>
+
+<h1>调用OpenClaw生成回复</h1>
+<p>def generate_openclaw_response(prompt):</p>
+<p>    headers = {'Content-Type': 'application/json'}</p>
+<p>    data = {</p>
+<p>        'prompt': prompt,</p>
+<p>        'max_tokens': 500,</p>
+<p>        'temperature': 0.7</p>
+<p>    }</p>
+<p>    try:</p>
+<p>        response = requests.post(OPENCLAW_URL, headers=headers, json=data)</p>
+<p>        result = response.json()</p>
+<p>        return result.get('text', '抱歉，我无法生成回复。')</p>
+<p>    except Exception as e:</p>
+<p>        return f'调用OpenClaw时出错：{str(e)}'</p>
+
+<h1>飞书消息回调接口</h1>
+<p>@app.route('/webhook', methods=['POST'])</p>
+<p>def webhook():</p>
+<p>    data = request.json</p>
+<p>    </p>
+<p>    <h1>处理URL验证</h1></p>
+<p>    if data.get('type') == 'url_verification':</p>
+<p>        return {'challenge': data.get('challenge')}</p>
+<p>    </p>
+<p>    <h1>处理消息事件</h1></p>
+<p>    if 'event' in data:</p>
+<p>        event = data['event']</p>
+<p>        if event.get('type') == 'message':</p>
+<p>            message = event.get('text', '')</p>
+<p>            chat_id = event.get('open_chat_id')</p>
+<p>            </p>
+<p>            <h1>调用OpenClaw生成回复</h1></p>
+<p>            response = generate_openclaw_response(message)</p>
+<p>            </p>
+<p>            <h1>发送回复到飞书</h1></p>
+<p>            send_feishu_message(chat_id, response)</p>
+<p>    </p>
+<p>    return {'status': 'ok'}</p>
+
+<p>if __name__ == '__main__':</p>
+<p>    app.run(host='0.0.0.0', port=5000)</p>
+<p><code>`</code></p>
+
+<h3>第五步：配置飞书事件订阅</h3>
+
+<li>在飞书开放平台的"事件订阅"中，启用事件订阅</li>
+<li>设置请求地址为你的服务器地址（如：<code>http://your-server:5000/webhook</code>）</li>
+<li>订阅以下事件：</li>
+<p>   - <code>im.message.receive_v1</code> - 接收消息</p>
+
+<h3>第六步：部署和测试</h3>
+
+<li>在你的服务器上运行中间服务：</li>
+<p><code>`</code>bash</p>
+<p>python feishu_openclaw_bot.py</p>
+<p><code>`</code></p>
+
+<li>确保服务器可以被飞书访问（需要公网IP或使用内网穿透工具如ngrok）</li>
+
+<li>在飞书中添加机器人到群组或发送私聊消息进行测试</li>
+
+<h2>高级功能</h2>
+
+<h3>1. 上下文管理</h3>
+<p>为了让AI助手能够进行多轮对话，我们需要维护对话上下文：</p>
+
+<p><code>`</code>python</p>
+<h1>简单的上下文管理</h1>
+<p>conversation_history = {}</p>
+
+<p>def generate_with_context(chat_id, message):</p>
+<p>    if chat_id not in conversation_history:</p>
+<p>        conversation_history[chat_id] = []</p>
+<p>    </p>
+<p>    <h1>添加用户消息到历史</h1></p>
+<p>    conversation_history[chat_id].append(f"用户：{message}")</p>
+<p>    </p>
+<p>    <h1>构建完整的对话上下文</h1></p>
+<p>    context = "\n".join(conversation_history[chat_id][-5:])  <h1>保留最近5轮对话</h1></p>
+<p>    </p>
+<p>    <h1>调用OpenClaw</h1></p>
+<p>    response = generate_openclaw_response(context)</p>
+<p>    </p>
+<p>    <h1>添加AI回复到历史</h1></p>
+<p>    conversation_history[chat_id].append(f"AI：{response}")</p>
+<p>    </p>
+<p>    return response</p>
+<p><code>`</code></p>
+
+<h3>2. 命令系统</h3>
+<p>可以添加特定的命令来执行不同的操作：</p>
+
+<p><code>`</code>python</p>
+<p>def handle_command(message, chat_id):</p>
+<p>    if message.startswith('/clear'):</p>
+<p>        <h1>清空对话历史</h1></p>
+<p>        conversation_history.pop(chat_id, None)</p>
+<p>        return "对话历史已清空"</p>
+<p>    </p>
+<p>    elif message.startswith('/help'):</p>
+<p>        return """可用命令：</p>
+<p>/clear - 清空对话历史</p>
+<p>/help - 显示帮助信息</p>
+<p>/status - 查看系统状态"""</p>
+<p>    </p>
+<p>    elif message.startswith('/status'):</p>
+<p>        return "OpenClaw服务运行正常"</p>
+<p>    </p>
+<p>    return None</p>
+<p><code>`</code></p>
+
+<h3>3. 消息格式化</h3>
+<p>使用飞书的富文本消息格式，让回复更加美观：</p>
+
+<p><code>`</code>python</p>
+<p>def send_rich_message(chat_id, title, content):</p>
+<p>    token = get_tenant_access_token()</p>
+<p>    url = 'https://open.feishu.cn/open-apis/message/v4/send'</p>
+<p>    headers = {</p>
+<p>        'Authorization': f'Bearer {token}',</p>
+<p>        'Content-Type': 'application/json'</p>
+<p>    }</p>
+<p>    </p>
+<p>    <h1>构建卡片消息</h1></p>
+<p>    card_data = {</p>
+<p>        'chat_id': chat_id,</p>
+<p>        'msg_type': 'interactive',</p>
+<p>        'card': {</p>
+<p>            'config': {'wide_screen_mode': True},</p>
+<p>            'header': {</p>
+<p>                'title': {</p>
+<p>                    'tag': 'plain_text',</p>
+<p>                    'content': title</p>
+<p>                }</p>
+<p>            },</p>
+<p>            'elements': [</p>
+<p>                {</p>
+<p>                    'tag': 'div',</p>
+<p>                    'text': {</p>
+<p>                        'tag': 'lark_md',</p>
+<p>                        'content': content</p>
+<p>                    }</p>
+<p>                }</p>
+<p>            ]</p>
+<p>        }</p>
+<p>    }</p>
+<p>    </p>
+<p>    requests.post(url, headers=headers, json=card_data)</p>
+<p><code>`</code></p>
+
+<h2>安全考虑</h2>
+
+<h3>1. 请求验证</h3>
+<p>验证飞书的请求签名，防止伪造请求：</p>
+
+<p><code>`</code>python</p>
+<p>import hmac</p>
+<p>import hashlib</p>
+
+<p>def verify_signature(timestamp, nonce, signature, body):</p>
+<p>    <h1>使用App Secret验证签名</h1></p>
+<p>    key = FEISHU_APP_SECRET.encode('utf-8')</p>
+<p>    message = f"{timestamp}{nonce}{body}".encode('utf-8')</p>
+<p>    expected_signature = hmac.new(key, message, hashlib.sha256).hexdigest()</p>
+<p>    return signature == expected_signature</p>
+<p><code>`</code></p>
+
+<h3>2. 访问控制</h3>
+<p>限制只有特定的用户或群组可以访问AI助手：</p>
+
+<p><code>`</code>python</p>
+<p>ALLOWED_USERS = ['user_id_1', 'user_id_2']</p>
+<p>ALLOWED_CHATS = ['chat_id_1']</p>
+
+<p>def check_permission(user_id, chat_id):</p>
+<p>    return user_id in ALLOWED_USERS or chat_id in ALLOWED_CHATS</p>
+<p><code>`</code></p>
+
+<h2>常见问题</h2>
+
+<h3>1. 飞书无法访问本地服务</h3>
+<p><strong>解决方案</strong>：使用内网穿透工具，如ngrok：</p>
+<p><code>`</code>bash</p>
+<p>ngrok http 5000</p>
+<p><code>`</code></p>
+
+<h3>2. OpenClaw响应慢</h3>
+<p><strong>解决方案</strong>：</p>
+<p><ul><li>优化OpenClaw配置，使用更小的模型</li></p>
+<li>添加异步处理，先发送"正在思考..."的提示</li>
+<li>使用缓存机制，缓存常见问题的回复</li>
+<p></ul></p>
+<h3>3. 消息长度限制</h3>
+<p>飞书对消息长度有限制，需要对长回复进行分段：</p>
+
+<p><code>`</code>python</p>
+<p>def split_long_message(text, max_length=2000):</p>
+<p>    chunks = []</p>
+<p>    while len(text) > max_length:</p>
+<p>        chunks.append(text[:max_length])</p>
+<p>        text = text[max_length:]</p>
+<p>    chunks.append(text)</p>
+<p>    return chunks</p>
+<p><code>`</code></p>
+
+<h2>总结</h2>
+
+<p>通过将OpenClaw与飞书对接，我们成功打造了一个智能的AI助手，让团队成员可以在日常工作中方便地使用AI能力。这种集成不仅提高了工作效率，还确保了数据的安全性和隐私性。</p>
+
+<p>未来，你可以进一步扩展这个系统，添加更多的功能，如：</p>
+<p><ul><li>文档自动总结</li></p>
+<li>会议纪要生成</li>
+<li>智能问答系统</li>
+<li>工作流自动化</li>
+<p></ul></p>
+<p>希望这篇文章对你有所帮助！</p>
+
+<h2>参考资源</h2>
+
+<p><ul><li><a href="https://open.feishu.cn/document/ukTMukTMukTM/uITNz4iM1MjLyUzM">飞书开放平台文档</a></li></p>
+<li><a href="https://github.com/openclaw/openclaw">OpenClaw GitHub仓库</a></li>
+<p></ul><li><a href="https://flask.palletsprojects.com/">Flask官方文档</a></li></p>
+            </div>
+        </section>
+        
+        <!-- Utterances 评论系统 -->
+        <section class="comments">
+            <script src="https://utteranc.es/client.js"
+                repo="HozonLee/MyAIBlog"
+                issue-term="pathname"
+                label="comment"
+                theme="github-light"
+                crossorigin="anonymous"
+                async>
+            </script>
+        </section>
+    </main>
+    <footer>
+        <div class="social-links">
+            <a href="https://github.com/HozonLee">GitHub</a>
+            <a href="https://twitter.com/yourusername">Twitter</a>
+            <a href="https://linkedin.com/in/yourusername">LinkedIn</a>
+            <a href="mailto:your.email@example.com">Email</a>
+            <a href="../feed.xml" class="rss-link" title="RSS 订阅">📡 RSS</a>
+        </div>
+        <p>&copy; 2026 佑值的技术博客</p>
+    </footer>
+    
+    <script id="posts-data" type="application/json">[{"title": "OpenClaw对接飞书：打造智能AI助手", "date": "2026-02-28", "url": "posts/2026-02-28-openclaw-feishu.html", "excerpt": "# OpenClaw对接飞书：打造智能AI助手", "tags": ["OpenClaw", "飞书", "集成", "AI助手"]}, {"title": "在MacBook Pro上本地部署OpenClaw并使用DeepSeek", "date": "2026-02-28", "url": "posts/2026-02-28-openclaw-deployment.html", "excerpt": "# 在MacBook Pro上本地部署OpenClaw并使用DeepSeek", "tags": ["OpenClaw", "DeepSeek", "本地部署", "MacBook Pro"]}]</script>
+    <script src="../assets/js/main.js"></script>
+    <!-- Umami 网站统计 -->
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="91404383-bdec-43de-9eb4-32d927053f11"></script>
+    
+    <button id="back-to-top" class="theme-toggle" style="bottom: 20px; top: auto; display: none;" title="返回顶部">↑</button>
+</body>
+</html>
