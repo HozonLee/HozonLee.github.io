@@ -1,7 +1,7 @@
 title: 佑值的技术博客
 author: HozonLee
 description: 沪漂程序员的技术博客
-baseurl: ""
+baseurl: /MyAIBlog
 url: https://hozonlee.github.io
 
 markdown: kramdown
